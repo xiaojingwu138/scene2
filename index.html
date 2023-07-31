@@ -1,29 +1,213 @@
 <!DOCTYPE html>
-<html lang="en" >
+<html lang="en">
 <head>
-<meta charset="utf-8">
- <title>Annual Change Primary Energy Source</title>
-  
-  <link rel="stylesheet" href="./style.css">
-  
-  </head>
-  
-  <body>
-<!-- partial:index.partial.html -->
-<link href='//fonts.googleapis.com/css?family=Lobster&subset=latin,latin-ext' rel='stylesheet' type='text/css'>
+  <meta charset="UTF-8" />
+  <title>Annual Change Primary Energy Source</title>
+  <script src="http://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+  <style type="text/css">
+  svg {
+    font: 10px sans-serif;
+    shape-rendering: crispEdges;
+  }
 
-<div class="chart"></div>
-<script src="https://d3js.org/d3.v4.min.js" charset="utf-8"></script>
-<!-- partial -->
-  <script  src="./script.js"></script>
-<button onclick="update(Solar)">Solar</button>
-<button onclick="update(Gas)">Gas</button>
+  .axis path,
+  .axis line {
+    fill: none;
+    stroke: #000;
+  }
+ 
+  path.domain {
+    stroke: none;
+  }
+ 
+  .y .tick line {
+    stroke: #ddd;
+  }
+  </style>
 
-<!-- Create a div where the graph will take place -->
-<div id="my_dataviz"></div>
+</head>
+<body>
+<script type="text/javascript">
+
+
+
+var margin = {top: 100, right: 160, bottom: 40, left: 50};
+
+var width = 960 - margin.left - margin.right,
+    height = 500 - margin.top - margin.bottom;
+
+var svg = d3.select("body")
+  .append("svg")
+  .attr("width", width + margin.left + margin.right)
+  .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+  .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+
+/* Data in strings like it would be if imported from a csv */
+
+var data = [
+  { year: '2012', Solar: 11.705908, Coal:0,Gas:299.12012, Nuclear:0},
+  { year: '2013', Solar: 18.935963, Coal:183.86719,Gas:189, Nuclear:41.35669},
+  { year: '2014', Solar:35.434574 , Coal:0,Gas:152.37646, Nuclear:9.293945},
+  { year: '2015', Solar: 27.024391, Coal:0,Gas:213.19043, Nuclear:0},
+  { year: '2016', Solar:42.188133 , Coal:0,Gas:55.194336, Nuclear:10.1970215},
+  { year: '2017', Solar: 59.371902, Coal:0,Gas:0, Nuclear:0},
+  { year: '2018', Solar: 41.77957, Coal:0,Gas:819.71045, Nuclear:0},
+  { year: '2019', Solar:35.10234 , Coal:0,Gas:290.3662, Nuclear:0},
+  { year: '2020' ,Solar:62.163147, Coal:0,Gas:0, Nuclear:0},
+  { year: '2021' ,Solar: 87.80618, Coal:380.7129,Gas:29.166016, Nuclear:0},
+  { year: '2022' ,Solar: 102.93228, Coal:0,Gas:454.08887, Nuclear:0},
+];
+
+var parse = d3.time.format("%Y").parse;
+
+
+
+  var dataset = d3.layout.stack()(["Solar", "Coal", "Gas", "Nuclear"].map(function(source) {
+  return data.map(function(d) {
+    return {x: parse(d.year), y: +d[source]};
+  });
+}));
+
+
+// Set x, y and colors
+var x = d3.scale.ordinal()
+  .domain(dataset[0].map(function(d) { return d.x; }))
+  .rangeRoundBands([10, width-10], 0.02);
+
+var y = d3.scale.linear()
+  .domain([0, d3.max(dataset, function(d) {  return d3.max(d, function(d) { return d.y0 + d.y; });  })])
+  .range([height, 0]);
+
+var colors = ["b33040", "#d25c4d", "#f2b447", "#d9d574"];
+
+
+// Define and draw axes
+var yAxis = d3.svg.axis()
+  .scale(y)
+  .orient("left")
+  .ticks(5)
+  .tickSize(-width, 0, 0)
+  .tickFormat( function(d) { return d } );
+
+var xAxis = d3.svg.axis()
+  .scale(x)
+  .orient("bottom")
+  .tickFormat(d3.time.format("%Y"));
+
+svg.append("g")
+  .attr("class", "y axis")
+  .call(yAxis);
+
+svg.append("g")
+  .attr("class", "x axis")
+  .attr("transform", "translate(0," + height + ")")
+  .call(xAxis);
+
+
+// Create groups for each series, rects for each segment 
+var groups = svg.selectAll("g.value")
+  .data(dataset)
+  .enter().append("g")
+  .attr("class", "value")
+  .style("fill", function(d, i) { return colors[i]; });
+
+var rect = groups.selectAll("rect")
+  .data(function(d) { return d; })
+  .enter()
+  .append("rect")
+  .attr("x", function(d) { return x(d.x); })
+  .attr("y", function(d) { return y(d.y0 + d.y); })
+  .attr("height", function(d) { return y(d.y0) - y(d.y0 + d.y); })
+  .attr("width", x.rangeBand())
+  .on("mouseover", function() { tooltip.style("display", null); })
+  .on("mouseout", function() { tooltip.style("display", "none"); })
+  .on("mousemove", function(d) {
+    var xPosition = d3.mouse(this)[0] - 15;
+    var yPosition = d3.mouse(this)[1] - 25;
+    tooltip.attr("transform", "translate(" + xPosition + "," + yPosition + ")");
+    tooltip.select("text").text(d.y);
+  });
+
+
+// Draw legend
+var legend = svg.selectAll(".legend")
+  .data(colors)
+  .enter().append("g")
+  .attr("class", "legend")
+  .attr("transform", function(d, i) { return "translate(30," + i * 19 + ")"; });
+ 
+legend.append("rect")
+  .attr("x", width - 18)
+  .attr("width", 18)
+  .attr("height", 18)
+  .style("fill", function(d, i) {return colors.slice().reverse()[i];});
+ 
+legend.append("text")
+  .attr("x", width + 5)
+  .attr("y", 9)
+  .attr("dy", ".35em")
+  .style("text-anchor", "start")
+  .text(function(d, i) { 
+    switch (i) {
+      case 0: return "Nuclears";
+      case 1: return "Gas";
+      case 2: return "Coal";
+      case 3: return "Solar";
+    }
+  });
+  
+  svg.append("text")
+.attr("transform", "rotate(-90)")
+.attr("y", 0 - margin.left)
+.attr("x", 0 - (height / 2))
+.attr("dy", "1em")
+.style("text-anchor", "middle")
+.style("font-size", "15px")
+.style("fill", "#777")
+.style("font-family", "sans-serif")
+.text("Source Growth Rate(TWh growth)");
+  
+  
+svg.append("text")
+.attr("y",  margin.bottom +330 )
+.attr("x", margin.left +300 )
+.attr("dy", "1em")
+.style("text-anchor", "middle")
+.style("font-size", "15px")
+.style("fill", "#777")
+.style("font-family", "sans-serif")
+.text("Year");
+  
+svg.append("text")
+.attr("class", "chart-title")
+.attr("x", margin.left +300)
+.attr("y", margin.bottom -100)
+.style("font-size", "20px")
+.style("text-anchor", "middle")
+.style("fill", "#777")
+.style("font-family", "sans-serif")
+.text("Annual Change Primary Energy Source");
+  
+  
+var tooltip = svg.append("g")
+  .attr("class", "tooltip")
+  .style("display", "none");
+    
+tooltip.append("rect")
+  .attr("width", 30)
+  .attr("height", 20)
+  .attr("fill", "white")
+  .style("opacity", 0.5);
+
+tooltip.append("text")
+  .attr("x", 15)
+  .attr("dy", "1.2em")
+  .style("text-anchor", "middle")
+  .attr("font-size", "12px")
+  .attr("font-weight", "bold");
+
+</script>
 </body>
- </html>
-<!-- Load d3.js -->
-
-<!-- Add 2 buttons -->
-
+</html>
